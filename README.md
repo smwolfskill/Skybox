@@ -10,7 +10,7 @@ Or if you have python 2,
 
 `python -m SimpleHTTPServer 8000`
 
-Then open the game in your browser:
+Then open the app in your browser:
 
 `localhost:8000/Teapot.html`
 

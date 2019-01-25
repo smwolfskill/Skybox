@@ -43,6 +43,8 @@ var teapotRotZ = 0.0;
 
 var speed = 0.12; //speed user camera moves forward
 
+var scale = 100; //percent scale of .obj file to load
+
 var mouseDown = false; //true if user has clicked mouse down (and not let up yet)
 var lastMousePos; //vec2 representing the last mouse position
 
@@ -411,9 +413,9 @@ function draw() {
     mat4.rotateX(mvMatrix,mvMatrix,modelXRotationRadians);
     mat4.rotateY(mvMatrix,mvMatrix,modelYRotationRadians);
     drawSkybox(40.0); //textures will be a bit low-res, but environment looks less boxy.
-    //drawMesh(teapotVertexPosBuf, teapotIndexBuf, teapotNormalBuf, 1.0, teapotRotX, 0, teapotRotZ, true); //draw teapot
+    drawMesh(teapotVertexPosBuf, teapotIndexBuf, teapotNormalBuf, scale / 100.0, teapotRotX, 0, teapotRotZ, true); //draw teapot
     //drawMesh(teapotVertexPosBuf, teapotIndexBuf, teapotNormalBuf, 0.27, teapotRotX, 0, teapotRotZ, true); //draw longsword
-    drawMesh(teapotVertexPosBuf, teapotIndexBuf, teapotNormalBuf, 0.4, teapotRotX, 0, teapotRotZ, true); //draw longsword
+    //drawMesh(teapotVertexPosBuf, teapotIndexBuf, teapotNormalBuf, 0.4, teapotRotX, 0, teapotRotZ, true); //draw longsword
     mvPopMatrix(); //revert to original lookAt matrix
     }
 }
@@ -515,8 +517,9 @@ function setupBuffers() {
     var teapotVertices = new Array(0);
     var teapotIndices = new Array(0);
     var LONGSWORDCOLORS = new Array(0);
-    //parseOBJ("teapot_0.obj", teapotVertices, teapotIndices);
-    parseOBJ("longsword.obj", teapotVertices, teapotIndices);
+    //hi
+    parseOBJ("teapot_0.obj", teapotVertices, teapotIndices);
+    //parseOBJ("longsword.obj", teapotVertices, teapotIndices);
     //2.2 Find the vertex normals (via averaged face normals)
     var teapotNormals = new Float32Array(teapotVertices.length / 4 * 3); //vertices are 4-vec; normals are 3-vec
     findVertexNormals(teapotVertices, teapotIndices, teapotNormals);
@@ -697,6 +700,7 @@ function handleOptions() {
     reflectionMapping = document.getElementById("reflect").checked;
     reflectionBlending = document.getElementById("reflectBlend").checked;
     spinnyWorld = document.getElementById("spinnyWorld").checked;
+    scale = document.getElementById("scale").value;
     gl.uniform1i(shaderProgram.reflectionBlendingUniform, reflectionBlending);
     if(!spinnyWorld) { //reset world rotation to 0 when unchecked
         modelXRotationRadians = 0.0;

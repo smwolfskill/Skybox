@@ -118,15 +118,33 @@ void main() {
 <script type="text/javascript" src="webgl-utils.js"></script>
 <script src="mp3A.js"></script>
 <script src="objParse.js"></script>
+<style>
+    input[type=number]{
+        width: 39px;
+        padding-left: 1px;
+    }
+    label {
+        padding-right: 30px;
+    }
+</style>
 <body onload="startup();">
     <div class="wrapper" style="margin: 0 auto; width: 850px; position: relative;">
         <canvas id="myGLCanvas" width="850" height="550"></canvas>
         <form id="input_form">
             <fieldset>
                 <legend>Rendering Parameters</legend>
+            <label>
+                Scale <input type="number" id="scale" min="0" value="100">%
+            </label>
+            <label>
             <input type="checkbox" name="reflect" id="reflect" checked="checked"> Environment Reflections
+            </label>
+            <label>
             <input type="checkbox" name="reflectBlend" id="reflectBlend"> Environment Reflection Blending
+            </label>
+            <label>
             <input type="checkbox" name="spinnyWorld" id="spinnyWorld"> Spinny World
+            </label>
             </fieldset>
         </form>
     </div>
