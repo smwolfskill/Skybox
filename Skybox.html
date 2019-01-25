@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <!-- @author     Scott Wolfskill, wolfski2 
      @created    04/10/2017
-     @last edit  04/17/2017           -->
+     @last edit  01/25/2019           -->
 <html lang="en"> 
 <head>
 <title>MP3A Environment Mapping</title>
@@ -119,6 +119,22 @@ void main() {
 <script src="mp3A.js"></script>
 <script src="objParse.js"></script>
 <style>
+    columnLeft {
+        float: left;
+        text-align: left;
+        max-width: 160px;
+        margin: 0;
+        padding: 1em;
+        line-height: 28px;
+    }
+    columnRight {
+        float: right;
+        text-align: left;
+        max-width: 160px;
+        margin: 0;
+        padding: 1em;
+        line-height: 28px;
+    }
     input[type=number]{
         width: 39px;
         padding-left: 1px;
@@ -128,6 +144,26 @@ void main() {
     }
 </style>
 <body onload="startup();">
+    <columnLeft>
+        <body text="black">
+            <h2>Controls</h2>
+            <p> A, ← : Orbit mesh left</p>
+            <p> D, → : Orbit mesh right</p>
+            <p> W : Move up</p>
+            <p> S : Move down</p>
+            <p> ↑ : Look up</p>
+            <p> ↓ : Look down</p>
+            <p> Click & Drag : Rotate mesh</p>
+        </body>
+    </columnLeft>
+    <columnRight>
+        <body text="black">
+            <h2>Mesh</h2>
+            <p>Select a mesh (.obj file) to display:</p>
+        </body>
+        <form id="meshInputList">
+        </form>
+    </columnRight>
     <div class="wrapper" style="margin: 0 auto; width: 850px; position: relative;">
         <canvas id="myGLCanvas" width="850" height="550"></canvas>
         <form id="input_form">
@@ -137,7 +173,7 @@ void main() {
                 Scale <input type="number" id="scale" min="0" value="100">%
             </label>
             <label>
-            <input type="checkbox" name="reflect" id="reflect" checked="checked"> Environment Reflections
+            <input type="checkbox" name="reflect" id="reflect" checked> Environment Reflections
             </label>
             <label>
             <input type="checkbox" name="reflectBlend" id="reflectBlend"> Environment Reflection Blending
@@ -147,14 +183,6 @@ void main() {
             </label>
             </fieldset>
         </form>
-    </div>
-    <div style="position: absolute; top:0; left:10;">
-        <body text="black">
-            <h2>Controls</h2>
-            <p> A, ← : Orbit teapot left</p>
-            <p> D, → : Orbit teapot right</p>
-            <p> Click & Drag : Rotate teapot</p>
-        </body>    
     </div>
 </body>
 

@@ -10,9 +10,10 @@ var canvas;
 
 var shaderProgram;
 
-var teapotVertexPosBuf; //vertex position buffer
-var teapotIndexBuf;
-var teapotNormalBuf; //Create a place to store normals for shading
+var meshBuffered = false; //true when user-selected .obj mesh has been buffered
+var meshVertexPosBuf; //vertex position buffer
+var meshIndexBuf;
+var meshNormalBuf; //Create a place to store normals for shading
 
 var skyboxVertexPosBufs;
 var skyboxIndexBufs;
@@ -38,8 +39,8 @@ var eyeQuatUD = quat.create(); //rotation moving Up/Down, about axis perpendicul
 var rotDegrees = 0.5; //degrees to increment/decrement axis rotation with user controls
 var rotDegreesY = 0.0; //total degrees we have currently rotated about the up axis
 
-var teapotRotX = 0.0;
-var teapotRotZ = 0.0;
+var meshRotX = 0.0;
+var meshRotZ = 0.0;
 
 var speed = 0.12; //speed user camera moves forward
 
@@ -138,7 +139,7 @@ function uploadLightsToShader(loc,a,d,s) {
 
 /**
  * Send the skybox boolean to the shaders.
- * @param {bool} skybox True indicates the shaders should draw the skybox; false indicates it should draw the teapot
+ * @param {bool} skybox True indicates the shaders should draw the skybox; false indicates it should draw the user-specified mesh
  */
 function uploadSkyboxToShader(skybox) {
     gl.uniform1i(shaderProgram.vsSkyboxUniform, skybox);
@@ -354,10 +355,10 @@ function drawMesh(vertexBuf, indexBuf, normalBuf, scale, rotX, rotY, rotZ, refMa
     //T && T -> use reflection mapping. Either F -> no reflections.
     refMapping = refMapping && reflectionMapping;
     gl.uniform1i(shaderProgram.reflectionMappingUniform, refMapping);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeMapTexture);
+    gl.uniform1i(shaderProgram.cubeSamplerUniform, 1);
     if(refMapping) {
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeMapTexture);
-        gl.uniform1i(shaderProgram.cubeSamplerUniform, 1);
         //Set up Y-rotation matrix for use in fragment shader (to rotate reflection vector)
         var rad = degToRad(rotDegreesY);
         rotYMatrix[0] = Math.cos(rad);
@@ -371,7 +372,7 @@ function drawMesh(vertexBuf, indexBuf, normalBuf, scale, rotX, rotY, rotZ, refMa
         rotYMatrix[8] = Math.cos(rad);
         gl.uniformMatrix3fv(shaderProgram.rotYMatrixUniform, false, rotYMatrix);
     }
-        
+    if(meshBuffered) {
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuf);
     gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, vertexBuf.itemSize, gl.FLOAT, false, 0, 0);
     
@@ -383,12 +384,12 @@ function drawMesh(vertexBuf, indexBuf, normalBuf, scale, rotX, rotY, rotZ, refMa
     
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuf);
     gl.drawElements(gl.TRIANGLES, indexBuf.numberOfItems, gl.UNSIGNED_SHORT, 0);
-    
+    }
     mvPopMatrix(); //revert to mvMatrix before drawMesh() was called
 }
 
 /**
- * Draw the skybox and teapot if all images have been loaded.
+ * Draw the skybox and selected mesh if all images have been loaded.
  */
 function draw() {
     if(imagesLoaded) {
@@ -413,9 +414,7 @@ function draw() {
     mat4.rotateX(mvMatrix,mvMatrix,modelXRotationRadians);
     mat4.rotateY(mvMatrix,mvMatrix,modelYRotationRadians);
     drawSkybox(40.0); //textures will be a bit low-res, but environment looks less boxy.
-    drawMesh(teapotVertexPosBuf, teapotIndexBuf, teapotNormalBuf, scale / 100.0, teapotRotX, 0, teapotRotZ, true); //draw teapot
-    //drawMesh(teapotVertexPosBuf, teapotIndexBuf, teapotNormalBuf, 0.27, teapotRotX, 0, teapotRotZ, true); //draw longsword
-    //drawMesh(teapotVertexPosBuf, teapotIndexBuf, teapotNormalBuf, 0.4, teapotRotX, 0, teapotRotZ, true); //draw longsword
+    drawMesh(meshVertexPosBuf, meshIndexBuf, meshNormalBuf, scale / 100.0, meshRotX, 0, meshRotZ, true); //draw mesh if buffered
     mvPopMatrix(); //revert to original lookAt matrix
     }
 }
@@ -486,9 +485,9 @@ function handleTextureLoaded(image, texture) {
 }
 
 /**
- * Load from 2 OBJ files and set up buffers for the skybox (6 faces) and the teapot.
+ * Load Skybox OBJ file and set up buffers for the skybox (6 faces).
  */
-function setupBuffers() {
+function setupSkyboxBuffers() {
     //1. Represent the skybox as 6 individual meshes of a cube
     var skyboxVertices = new Array(0);
     var skyboxIndices = new Array(0);
@@ -512,21 +511,26 @@ function setupBuffers() {
       }
       skyboxIndexBufs[f] = setupIndexBuffer(curIndices);
     }
-    
-    //2. Load the teapot using objParse.js
-    var teapotVertices = new Array(0);
-    var teapotIndices = new Array(0);
-    var LONGSWORDCOLORS = new Array(0);
-    //hi
-    parseOBJ("teapot_0.obj", teapotVertices, teapotIndices);
-    //parseOBJ("longsword.obj", teapotVertices, teapotIndices);
-    //2.2 Find the vertex normals (via averaged face normals)
-    var teapotNormals = new Float32Array(teapotVertices.length / 4 * 3); //vertices are 4-vec; normals are 3-vec
-    findVertexNormals(teapotVertices, teapotIndices, teapotNormals);
-    //2.3 Create buffers
-    teapotVertexPosBuf = setupVertexBuffer(teapotVertices, 4);
-    teapotIndexBuf = setupIndexBuffer(teapotIndices);
-    teapotNormalBuf = setupNormalBuffer(teapotNormals);
+}
+
+/**
+ * Load mesh OBJ file from a file and set up buffers for it.
+ * @param {String} meshFilename Filename of the mesh to load (.obj file)
+ */
+function setupMeshBuffers(meshFilename) {
+    meshBuffered = false;
+    //2. Load the .obj mesh using objParse.js
+    var meshVertices = new Array(0);
+    var meshIndices = new Array(0);
+    parseOBJ(meshFilename, meshVertices, meshIndices);
+    //2.1 Find the vertex normals (via averaged face normals)
+    var meshNormals = new Float32Array(meshVertices.length / 4 * 3); //vertices are 4-vec; normals are 3-vec
+    findVertexNormals(meshVertices, meshIndices, meshNormals);
+    //2.2 Create buffers
+    meshVertexPosBuf = setupVertexBuffer(meshVertices, 4);
+    meshIndexBuf = setupIndexBuffer(meshIndices);
+    meshNormalBuf = setupNormalBuffer(meshNormals);
+    meshBuffered = true;
 }
 
 /**
@@ -603,51 +607,53 @@ function handleKeyUp(event) {
  */
 function handleKeys() {
     //   http://keycode.info/
-    if(pressedKeys[37] || pressedKeys[65]) { //Left arrow OR A: Turn left (orbit teapot left) (about y axis)
+    if(pressedKeys[37] || pressedKeys[65]) { //Left arrow OR A: Turn left (orbit mesh left) (about y axis)
         quat.setAxisAngle(quatLR, vec3.fromValues(0.0,1.0,0.0), degToRad(-1.0 * rotDegrees));
         vec3.transformQuat(eyePt,eyePt,quatLR);
-        //viewDir = normalize(vec3.fromValues(0.0 - eyePt[0], viewDir[1], 0.0 - eyePt[2])); //ensure always looking at teapot
+        //viewDir = normalize(vec3.fromValues(0.0 - eyePt[0], viewDir[1], 0.0 - eyePt[2])); //ensure always looking at mesh
         
         var oldY = viewDir[1];
-        viewDir = normalize(vec3.fromValues(0.0 - eyePt[0], 0.0, 0.0 - eyePt[2])); //ensure always looking at teapot
+        viewDir = normalize(vec3.fromValues(0.0 - eyePt[0], 0.0, 0.0 - eyePt[2])); //ensure always looking at mesh
         viewDir[1] = oldY;
         
         
         rotDegreesY -= rotDegrees;
         if(rotDegreesY <= -360.0) rotDegreesY += 360.0;
     }
-    if(pressedKeys[39] || pressedKeys[68]) { //Right arrow OR D: Turn right (orbit teapot right) (about y axis)
+    if(pressedKeys[39] || pressedKeys[68]) { //Right arrow OR D: Turn right (orbit mesh right) (about y axis)
         quat.setAxisAngle(quatLR, vec3.fromValues(0.0,1.0,0.0), degToRad(rotDegrees));
         vec3.transformQuat(eyePt,eyePt,quatLR);
-        //viewDir = normalize(vec3.fromValues(0.0 - eyePt[0], viewDir[1], 0.0 - eyePt[2])); //ensure always looking at teapot
+        //viewDir = normalize(vec3.fromValues(0.0 - eyePt[0], viewDir[1], 0.0 - eyePt[2])); //ensure always looking at mesh
         
         var oldY = viewDir[1];
-        viewDir = normalize(vec3.fromValues(0.0 - eyePt[0], 0.0, 0.0 - eyePt[2])); //ensure always looking at teapot
+        viewDir = normalize(vec3.fromValues(0.0 - eyePt[0], 0.0, 0.0 - eyePt[2])); //ensure always looking at mesh
         viewDir[1] = oldY;
         
         rotDegreesY += rotDegrees;
         if(rotDegreesY >= 360.0) rotDegreesY -= 360.0;
     }
-    if(pressedKeys[87]) { //W: pitch up
+    if(pressedKeys[38]) { //Up Arrow: pitch up
         var axis = cross(viewDir, up); //rot. about the axis perpendicular to both viewDir and up
         quat.setAxisAngle(eyeQuatUD, axis, degToRad(rotDegrees)) //create the quat
         vec3.transformQuat(viewDir,viewDir,eyeQuatUD); //apply to viewDir
         vec3.transformQuat(up,up,eyeQuatUD); //apply to up (so viewDir and up are always perpendicular)
     }
-    if(pressedKeys[83]) { //S: pitch down
+    if(pressedKeys[40]) { //Back Arrow: pitch down
         var axis = cross(viewDir, up);
         quat.setAxisAngle(eyeQuatUD, axis, degToRad(-1.0 * rotDegrees)) //create the quat
         vec3.transformQuat(viewDir,viewDir,eyeQuatUD); //apply to viewDir
         vec3.transformQuat(up,up,eyeQuatUD); //apply to up (so viewDir and up are always perpendicular)
     }
-    if(pressedKeys[38]) { //Up Arrow: move forward
+    if(pressedKeys[87]) { //W: move forward
         //Move in direction of viewDir
-        var velocity = vec3.fromValues(speed*viewDir[0], speed*viewDir[1], speed*viewDir[2]);
+        //var velocity = vec3.fromValues(speed*viewDir[0], speed*viewDir[1], speed*viewDir[2]);
+        var velocity = vec3.fromValues(0.0, speed, 0.0);
         vec3.add(eyePt, velocity, eyePt);
     }
-    if(pressedKeys[40]) { //Back Arrow: move backward
+    if(pressedKeys[83]) { //S: move backward
         //Move in opposite direction of viewDir
-        var velocity = vec3.fromValues(-1.0*speed*viewDir[0], -1.0*speed*viewDir[1], -1.0*speed*viewDir[2]);
+        //var velocity = vec3.fromValues(-1.0*speed*viewDir[0], -1.0*speed*viewDir[1], -1.0*speed*viewDir[2]);
+        var velocity = vec3.fromValues(0.0, -1.0*speed, 0.0);
         vec3.add(eyePt, velocity, eyePt);
     }
 }
@@ -661,7 +667,7 @@ function handleMouseUp() {
 }
 
 /**
- * Use combined mouse click & movement to rotate the teapot. Change in X -> roll teapot; Change in Y -> rotate up/down.
+ * Use combined mouse click & movement to rotate the mesh. Change in X -> roll mesh; Change in Y -> rotate up/down.
  * Uses Euler angles b/c I could not get quaternions to apply correctly for some reason :(
  */
 function handleMouseMove(event) {
@@ -672,18 +678,18 @@ function handleMouseMove(event) {
             var sign = 1.0;
             if(change[0] < 0) sign = -1.0;
             
-            teapotRotZ += sign * rotDegrees;
-            if(teapotRotZ >= 360.0) teapotRotZ -= 360.0;
-            if(teapotRotZ <= -360.0) tepotRotZ += 360.0;
+            meshRotZ += sign * rotDegrees;
+            if(meshRotZ >= 360.0) meshRotZ -= 360.0;
+            if(meshRotZ <= -360.0) meshRotZ += 360.0;
         }
         //Rotate up/down if change in mouse Y
         if(change[1] != 0) {
             var sign = 1.0;
             if(change[1] < 0) sign = -1.0;
             
-            teapotRotX += sign * rotDegrees;
-            if(teapotRotX >= 360.0) teapotRotX -= 360.0;
-            if(teapotRotX <= -360.0) tepotRotX += 360.0;
+            meshRotX += sign * rotDegrees;
+            if(meshRotX >= 360.0) meshRotX -= 360.0;
+            if(meshRotX <= -360.0) meshRotX += 360.0;
         }
     }
     lastMousePos[0] = event.clientX;
@@ -709,6 +715,36 @@ function handleOptions() {
 }
 
 /**
+ * Creates a radio button corresponding to each .obj file in the app directory. 
+ * Selecting a radio button will load the mesh for that .obj file.
+ */
+function createHTMLMeshOptions() {
+    var count = 0;
+    var meshFilenames = getOBJfiles();
+    var meshInputList = document.getElementById("meshInputList");
+    //Create a radio button with text for each mesh filename.
+    for(var i = 0; i < meshFilenames.length; i++) {
+        var meshInput = document.createElement("INPUT");
+        var meshInput_text = document.createTextNode(meshFilenames[i]);
+        var br = document.createElement("br");
+        meshInput.setAttribute("type", "radio");
+        meshInput.setAttribute("name", "meshInput");
+        meshInput.setAttribute("id", "meshRad" + count.toString());
+        meshInput.setAttribute("value", meshFilenames[i]); //filename of the .obj mesh to load
+        
+        meshInputList.appendChild(meshInput);
+        meshInputList.appendChild(meshInput_text);
+        meshInputList.appendChild(br);
+        //Add OnChange listener:
+        meshInput.addEventListener('change', 
+            function() {
+                setupMeshBuffers(this.value); //setup the buffer for the mesh
+                console.log(this.value)
+            });
+    }
+}
+
+/**
  * Startup function called from html code to start program.
  */
  function startup() {
@@ -726,11 +762,12 @@ function handleOptions() {
   gl.enable(gl.DEPTH_TEST);
     
   setupShaders();
-  setupBuffers();
+  setupSkyboxBuffers();
   skyboxTextures = new Array(6);
   skyboxImages = new Array(6);
   setupSkyboxTextures(skyboxTextures, skyboxImages, ["pos-x.png", "neg-x.png", "pos-y.png", "neg-y.png", "pos-z.png", "neg-z.png"]);
   setupCubeMap();
+  createHTMLMeshOptions();
   tick();
 }
 

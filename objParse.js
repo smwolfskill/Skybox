@@ -34,6 +34,47 @@ function readTextFile(filename)
 }
 
 /**
+ * Find and return a list of all .obj filenames in the app directory.
+ * @return {Array} Array of strings containing the filenames of all .obj files in the app directory.
+ */
+function getOBJfiles() {
+    var textResult = readTextFile(".");
+    var meshList = [];
+    if(textResult.length < 1) {
+        return meshList;
+    }
+    
+    var inputtingMesh = false;
+    var curMesh = "";
+    for(var i = 1; i < textResult.length; i++) {
+        if(inputtingMesh) {
+            if(textResult[i] == "\"") { //end of filename
+                inputtingMesh = false;
+                if(IsOBJFile(curMesh)) { //add to mesh list if .obj file
+                    meshList.push(curMesh); 
+                }
+            } else {
+                curMesh += textResult[i];
+            }
+        } else if(textResult[i-1] == "<" && textResult[i] == "a") { //marker indicating .obj filename
+            inputtingMesh = true;
+            curMesh = "";
+            i += 7;
+        }
+    }
+    console.log(meshList);
+    return meshList;
+}
+
+function IsOBJFile(filename) {
+    var len = filename.length;
+    if(len < 4) {
+        return false;
+    }
+    return (filename.substring(len-4, len) == ".obj");
+}
+
+/**
  * Parse an OBJ file consisting of only vertices, faces, vertex texture coordinates, and comments
  * @param {String} filename String name of the file in the current server directory to parse
  * @param {Array} meshVertices 0-length Array that will hold the vertices
