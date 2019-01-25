@@ -12,6 +12,6 @@ Or if you have python 2,
 
 Then open the app in your browser:
 
-`localhost:8000/Teapot.html`
+`localhost:8000/Skybox.html`
 
 To quit the server (unix) simply hit `CTRL^C` in command-line.
