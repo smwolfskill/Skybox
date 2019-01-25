@@ -37,7 +37,8 @@ var viewPt = vec3.fromValues(0.0,0.0,0.0);
 // Quaternion view params
 var quatLR = quat.create(); //rotation moving Left/Right, about the up axis
 var eyeQuatUD = quat.create(); //rotation moving Up/Down, about axis perpendicular to up and eyeDir
-var rotDegrees = 0.5; //degrees to increment/decrement axis rotation with user controls
+var rotDegrees = 0.85; //degrees to increment/decrement axis rotation with user controls
+var rotDegrees_clickAndDrag = 0.9; //degrees to increment/decrement axis rotation with mouse controls
 var rotDegreesY = 0.0; //total degrees we have currently rotated about the up axis
 
 var meshRotX = 0.0;
@@ -677,7 +678,7 @@ function handleMouseMove(event) {
             var sign = 1.0;
             if(change[0] < 0) sign = -1.0;
             
-            meshRotZ += sign * rotDegrees;
+            meshRotZ += sign * rotDegrees_clickAndDrag;
             if(meshRotZ >= 360.0) meshRotZ -= 360.0;
             if(meshRotZ <= -360.0) meshRotZ += 360.0;
         }
@@ -686,7 +687,7 @@ function handleMouseMove(event) {
             var sign = 1.0;
             if(change[1] < 0) sign = -1.0;
             
-            meshRotX += sign * rotDegrees;
+            meshRotX += sign * rotDegrees_clickAndDrag;
             if(meshRotX >= 360.0) meshRotX -= 360.0;
             if(meshRotX <= -360.0) meshRotX += 360.0;
         }
