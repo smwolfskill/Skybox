@@ -726,16 +726,25 @@ function handleOptions() {
     }
 }
 
+/**
+ * Convert a color hex to its rgb representation.
+ * @param {String} hex String hex of color in format #rrggbb
+ * @return {Array} [r, g, b] where r,g,b are between 0.0 and 1.0.
+ */
 function hexToRgb(hex) {
     var result = [];
     for(var i = 0; i < 3; i++) {
         var c = parseInt(hex.substring(1+2*i, 3+2*i), 16) / 255.0;
-        console.log(hex.substring(1+2*i, 3+2*i));
         result.push(c);
     }
     return result;
 }
 
+/**
+ * Convert a single color component (r,g or b) to its hex string.
+ * @param {Number} c between 0.0 and 1.0
+ * @return {String} hex representation with two digits.
+ */ 
 function componentToHex(c) {
     var int = Math.round(c * 255);
     var hex = int.toString(16);
@@ -746,6 +755,11 @@ function componentToHex(c) {
     }
 }
 
+/**
+ * Convert an rgb color to its hex representation.
+ * @param {Array} rgbList [r, g, b] where r,g,b are between 0.0 and 1.0.
+ * @return {String} hex representation of the rgb color in hex format #rrggbb
+ */
 function rgbToHex(rgbList) {
     if(rgbList.length < 3) {
         throw new Error("rgbList too short! (length " + rgbList.length.toString() + ")", filename, lineNum);
@@ -753,6 +767,9 @@ function rgbToHex(rgbList) {
     return "#" + componentToHex(rgbList[0]) + componentToHex(rgbList[1]) + componentToHex(rgbList[2]);
 }
 
+/**
+ * Set meshColor_hex and meshColorPicker in document to its representation of meshColor_rgb.
+ */
 function setMeshColor() {
     meshColor_hex = rgbToHex(meshColor_rgb);
     var meshColorPicker = document.getElementById("meshColor");
@@ -760,13 +777,30 @@ function setMeshColor() {
 }
 
 /**
+ * Delete all mesh radio buttons, and return the filename of the current mesh selected, if any.
+ * @return {String} Filename of mesh currently selected, or "" if none.
+ */
+function clearHTMLMeshOptions() {
+    var meshInputList = document.getElementById("meshInputList");
+    var selectedMesh = "";
+    while(meshInputList.lastChild) {
+        if(meshInputList.lastChild.checked) { //user selected this mesh
+            selectedMesh = meshInputList.lastChild.value;
+         }
+         meshInputList.removeChild(meshInputList.lastChild);
+    }
+    return selectedMesh;
+}
+
+/**
  * Creates a radio button corresponding to each .obj file in the app directory. 
  * Selecting a radio button will load the mesh for that .obj file.
+ * @param {String} selectedMesh Filename of mesh to select once the list is created, if exists. "" indicates none to select.
  */
-function createHTMLMeshOptions() {
-    var count = 0;
+function createHTMLMeshOptions(selectedMesh) {
     var meshFilenames = getOBJfiles();
     var meshInputList = document.getElementById("meshInputList");
+    var selectedAMesh = false;
     //Create a radio button with text for each mesh filename.
     for(var i = 0; i < meshFilenames.length; i++) {
         var meshInput = document.createElement("INPUT");
@@ -774,9 +808,12 @@ function createHTMLMeshOptions() {
         var br = document.createElement("br");
         meshInput.setAttribute("type", "radio");
         meshInput.setAttribute("name", "meshInput");
-        meshInput.setAttribute("id", "meshRad" + count.toString());
+        meshInput.setAttribute("id", "meshRad" + i.toString());
         meshInput.setAttribute("value", meshFilenames[i]); //filename of the .obj mesh to load
-        
+        if(meshFilenames[i] == selectedMesh) {
+            meshInput.setAttribute("checked", "true");
+            selectedAMesh = true;
+        }
         meshInputList.appendChild(meshInput);
         meshInputList.appendChild(meshInput_text);
         meshInputList.appendChild(br);
@@ -784,9 +821,23 @@ function createHTMLMeshOptions() {
         meshInput.addEventListener('change', 
             function() {
                 setupMeshBuffers(this.value); //setup the buffer for the mesh
-                console.log(this.value)
             });
     }
+    if(!selectedAMesh) {
+        meshBuffered = false;
+    }
+}
+
+/**
+ * Add OnClick listener to btnRefresh.
+ */
+function addBtnRefreshOnClickListener() {
+    var btnRefresh = document.getElementById("btnRefresh");
+    btnRefresh.addEventListener('click', 
+        function() {
+            var selectedMesh = clearHTMLMeshOptions();
+            createHTMLMeshOptions(selectedMesh);
+        });
 }
 
 /**
@@ -812,7 +863,8 @@ function createHTMLMeshOptions() {
   skyboxImages = new Array(6);
   setupSkyboxTextures(skyboxTextures, skyboxImages, ["pos-x.png", "neg-x.png", "pos-y.png", "neg-y.png", "pos-z.png", "neg-z.png"]);
   setupCubeMap();
-  createHTMLMeshOptions();
+  createHTMLMeshOptions("");
+  addBtnRefreshOnClickListener();
   setMeshColor();
   tick();
 }

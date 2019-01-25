@@ -62,7 +62,7 @@ function getOBJfiles() {
             i += 7;
         }
     }
-    console.log(meshList);
+    console.log("Found OBJ files: " + meshList);
     return meshList;
 }
 
