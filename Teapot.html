@@ -1,0 +1,143 @@
+<!DOCTYPE HTML>
+<!-- @author     Scott Wolfskill, wolfski2 
+     @created    04/10/2017
+     @last edit  04/17/2017           -->
+<html lang="en"> 
+<head>
+<title>MP3A Environment Mapping</title>
+<meta charset="utf-8"> 
+</head>
+
+    
+<script id="shader-vs" type="x-shader/x-vertex">
+   attribute vec4 aVertexPosition;
+   attribute vec3 aVertexNormal;
+   attribute vec2 aTexCoord;
+   
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform bool vsSkybox; //true if we're drawing the skybox, false if the teapot
+    
+   varying vec4 vVertexPosition;
+   varying vec3 vVertexNormal;
+   varying vec2 vTexCoord;
+
+    void main(void) {
+        if(vsSkybox) {
+            vVertexNormal = vec3(0.0, 0.0, 0.0); //garbage to stop compiler complaining
+            vTexCoord = aTexCoord;
+        } else {
+            vVertexNormal = aVertexNormal;
+            //vTexCoord = vec2(0.0, 0.0); //garbage to stop compiler complaining
+            vTexCoord = aTexCoord; //TEMP
+        }
+        vVertexPosition = aVertexPosition;
+        gl_Position = uPMatrix*uMVMatrix*aVertexPosition;
+    }
+</script>
+  
+<script id="shader-fs" type="x-shader/x-fragment">
+precision highp float;
+ 
+varying vec4 vVertexPosition;
+varying vec3 vVertexNormal;
+varying vec2 vTexCoord; // Texture (u, v) coordinates
+ 
+uniform sampler2D uSampler; //texture
+uniform samplerCube uCubeSampler; //cube map texture (only for reflection mapping)
+uniform bool fsSkybox; //true if we're drawing the skybox, false if the teapot
+uniform bool reflectionMapping; //true if we're doing reflection mapping on everything other than the skybox; false if normal shading
+uniform bool reflectionBlending; //true if when we do reflection mapping we should blend the reflection with the underlying object shading
+
+    uniform mat4 fs_uMVMatrix;
+    uniform mat3 uNMatrix;
+    uniform mat3 rotYMatrix;
+    uniform vec3 uLightPosition;
+    uniform vec3 uAmbientLightColor;
+    uniform vec3 uDiffuseLightColor;
+    uniform vec3 uSpecularLightColor;
+    
+    const float shininess = 100.0;//2.0;
+ 
+void main() {
+    if(fsSkybox) {
+        gl_FragColor = texture2D(uSampler, vTexCoord);
+    } else {
+        // Get the vertex position in eye coordinates
+        vec4 vertexPositionEye4 = fs_uMVMatrix * vVertexPosition;
+        vec3 vertexPositionEye3 = vertexPositionEye4.xyz / vertexPositionEye4.w;
+        
+        // Calculate the vector (l) to the light source
+        vec3 vectorToLightSource = normalize(uLightPosition - vertexPositionEye3);
+        
+        // Transform the normal (n) to eye coordinates
+        vec3 normalEye = normalize(uNMatrix * vVertexNormal);
+        
+        // Calculate n dot l for diffuse lighting
+        float diffuseLightWeightning = max(dot(normalEye, vectorToLightSource), 0.0);
+                                           
+        // Calculate the reflection vector (r) that is needed for specular light
+        vec3 reflectionVector = normalize(reflect(-vectorToLightSource, normalEye));
+        
+        // The camera in eye coordinates is located in the origin and is pointing
+        // along the negative z-axis. Calculate viewVector (v) 
+        // in eye coordinates as:
+        // (0.0, 0.0, 0.0) - vertexPositionEye3
+        vec3 viewVectorEye = -normalize(vertexPositionEye3);
+        
+        float rdotv = max(dot(reflectionVector, viewVectorEye), 0.0);
+        
+        float specularLightWeightning = pow(rdotv, shininess);
+               
+        // Sum up all three reflection components
+        vec4 shadingColor = vec4((uAmbientLightColor
+                + uDiffuseLightColor * diffuseLightWeightning
+                + uSpecularLightColor * specularLightWeightning),1.0);
+        
+        if(reflectionMapping) {
+            vec4 N = fs_uMVMatrix * vec4(vVertexNormal, 0.0);
+            vec3 R = reflect(vertexPositionEye4.xyz, N.xyz);
+            R = rotYMatrix * R;
+            //gl_FragColor = textureCube(uCubeSampler,R);
+            vec4 reflectionColor = textureCube(uCubeSampler,R);
+            
+            if(reflectionBlending) {
+                gl_FragColor = mix(reflectionColor, shadingColor, 0.3);
+            } else {
+                gl_FragColor = reflectionColor;
+            }
+        } else {
+            gl_FragColor = shadingColor;
+        }
+        
+    }
+}
+</script>
+
+<script src="gl-matrix-min.js"></script> 
+<script type="text/javascript" src="webgl-utils.js"></script>
+<script src="mp3A.js"></script>
+<script src="objParse.js"></script>
+<body onload="startup();">
+    <div class="wrapper" style="margin: 0 auto; width: 850px; position: relative;">
+        <canvas id="myGLCanvas" width="850" height="550"></canvas>
+        <form id="input_form">
+            <fieldset>
+                <legend>Rendering Parameters</legend>
+            <input type="checkbox" name="reflect" id="reflect" checked="checked"> Environment Reflections
+            <input type="checkbox" name="reflectBlend" id="reflectBlend"> Environment Reflection Blending
+            <input type="checkbox" name="spinnyWorld" id="spinnyWorld"> Spinny World
+            </fieldset>
+        </form>
+    </div>
+    <div style="position: absolute; top:0; left:10;">
+        <body text="black">
+            <h2>Controls</h2>
+            <p> A, ← : Orbit teapot left</p>
+            <p> D, → : Orbit teapot right</p>
+            <p> Click & Drag : Rotate teapot</p>
+        </body>    
+    </div>
+</body>
+
+</html>
