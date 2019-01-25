@@ -1,5 +1,5 @@
 # Skybox
-Simple Skybox web app which allows the user to dynamically view a 3D model with or without HD environment reflections while in a small city skybox.
+Simple Skybox web app which allows the user to dynamically view a 3D model (.obj format) with or without HD environment reflections while in a small city skybox.
 
 The simplest way to launch the app is to create a local server using python 3 in a command-line interface.
 Once you're in the source code directory, run the python server on port 8000:
