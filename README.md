@@ -15,3 +15,7 @@ Then open the app in your browser:
 `localhost:8000/Skybox.html`
 
 To quit the server (unix) simply hit `CTRL^C` in command-line.
+
+# Loading a Mesh
+The app includes a teapot and longsword blade mesh.
+To view your own mesh, place its .obj file directly within the source directory.
