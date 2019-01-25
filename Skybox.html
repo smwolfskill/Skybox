@@ -140,8 +140,15 @@ void main() {
         width: 39px;
         padding-left: 1px;
     }
+    input[type=color]{
+        width: 25px;
+        height: 20px;
+        margin-left: 6px;
+        margin-right: 6px;
+    }
     label {
-        padding-right: 30px;
+        padding-right: 25px;
+        
     }
 </style>
 <body onload="startup();">
@@ -174,13 +181,16 @@ void main() {
                 Scale <input type="number" id="scale" min="0" value="100">%
             </label>
             <label>
-            <input type="checkbox" name="reflect" id="reflect" checked> Environment Reflections
+                <input type="checkbox" name="reflect" id="reflect" checked> Environment Reflections
             </label>
             <label>
-            <input type="checkbox" name="reflectBlend" id="reflectBlend"> Environment Reflection Blending
+                <input type="checkbox" name="reflectBlend" id="reflectBlend"> Reflection Blending    
+            </label>
+            <label id="meshColor_lbl" style="display:none;">
+                <input type="color" name="meshColor" id="meshColor" value="#ff0000"><span id="meshColor_text">Mesh Color</span>
             </label>
             <label>
-            <input type="checkbox" name="spinnyWorld" id="spinnyWorld"> Spinny World
+                <input type="checkbox" name="spinnyWorld" id="spinnyWorld"> Spinny World
             </label>
             </fieldset>
         </form>

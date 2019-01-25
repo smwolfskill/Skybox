@@ -26,10 +26,11 @@ var imagesLoaded = false; //true when all images have been loaded
 //For reflection mapping:
 var cubeMapTexture; //use a cube map only for this part since it seems simplest (didn't work well for skybox)
 var reflectionMapping = true;
+var meshColor_rgb = [0.5,0.5,0.8]; //default light-blue
+var meshColor_hex;
 
 // View parameters
-var eyePt = vec3.fromValues(0.0, 0.0, 10.0); //15 depth
-//var eyePt = vec3.fromValues(0.0, 9.5, 0.5); //15 depth
+var eyePt = vec3.fromValues(0.0, 1.6, 10.0); //15 depth
 var viewDir = vec3.fromValues(0.0,0.0,-1.0);
 var up = vec3.fromValues(0.0,1.0,0.0);
 var viewPt = vec3.fromValues(0.0,0.0,0.0);
@@ -405,9 +406,7 @@ function draw() {
 	// Then generate the lookat matrix and initialize the MV matrix to that view
 	mat4.lookAt(mvMatrix,eyePt,viewPt,up); 
        
-    //uploadLightsToShader([0,1,1],[0.3,0.3,0.3],[0.75,0.75,0.75],[0.2,0.2,0.2]); //grey-black: [0.3, 0.3, 0.3]
-    //uploadLightsToShader([0,1,1],[0.5,0.5,0.8],[0.75,0.75,0.75],[0.2,0.2,0.2]); //blue: [0.5, 0.5, 0.8]
-    uploadLightsToShader([1,1,-1],[0.5,0.5,0.8],[0.75,0.75,0.75],[0.2,0.2,0.2]); //blue: [0.5, 0.5, 0.8]
+    uploadLightsToShader([1,1,-1],meshColor_rgb,[0.75,0.75,0.75],[0.2,0.2,0.2]);
     
     //Draw 
     mvPushMatrix(); //save current mvMatrix for later
@@ -704,14 +703,59 @@ function handleMouseMove(event) {
  */
 function handleOptions() {
     reflectionMapping = document.getElementById("reflect").checked;
-    reflectionBlending = document.getElementById("reflectBlend").checked;
+    var reflectionBlending = document.getElementById("reflectBlend").checked;
+    var meshColor_lbl = document.getElementById("meshColor_lbl");
+    var meshColorPicker = document.getElementById("meshColor");
     spinnyWorld = document.getElementById("spinnyWorld").checked;
     scale = document.getElementById("scale").value;
+    //Show/hide color picker next to reflectBlend checkbox
+    if(reflectionBlending || !reflectionMapping) {
+        meshColor_lbl.style.display = "inline";
+        if(meshColor_hex != meshColorPicker.value) { //only update internal vars. if user picks different color
+            meshColor_hex = meshColorPicker.value;
+            meshColor_rgb = hexToRgb(meshColorPicker.value);
+        }
+    } else {
+        meshColor_lbl.style.display = "none";
+    }
     gl.uniform1i(shaderProgram.reflectionBlendingUniform, reflectionBlending);
     if(!spinnyWorld) { //reset world rotation to 0 when unchecked
         modelXRotationRadians = 0.0;
         modelYRotationRadians = 0.0;
     }
+}
+
+function hexToRgb(hex) {
+    var result = [];
+    for(var i = 0; i < 3; i++) {
+        var c = parseInt(hex.substring(1+2*i, 3+2*i), 16) / 255.0;
+        console.log(hex.substring(1+2*i, 3+2*i));
+        result.push(c);
+    }
+    return result;
+}
+
+function componentToHex(c) {
+    var int = Math.round(c * 255);
+    var hex = int.toString(16);
+    if(hex.length == 1) {
+        return "0" + hex;
+    } else {
+        return hex;
+    }
+}
+
+function rgbToHex(rgbList) {
+    if(rgbList.length < 3) {
+        throw new Error("rgbList too short! (length " + rgbList.length.toString() + ")", filename, lineNum);
+    }
+    return "#" + componentToHex(rgbList[0]) + componentToHex(rgbList[1]) + componentToHex(rgbList[2]);
+}
+
+function setMeshColor() {
+    meshColor_hex = rgbToHex(meshColor_rgb);
+    var meshColorPicker = document.getElementById("meshColor");
+    meshColorPicker.value = meshColor_hex;
 }
 
 /**
@@ -768,6 +812,7 @@ function createHTMLMeshOptions() {
   setupSkyboxTextures(skyboxTextures, skyboxImages, ["pos-x.png", "neg-x.png", "pos-y.png", "neg-y.png", "pos-z.png", "neg-z.png"]);
   setupCubeMap();
   createHTMLMeshOptions();
+  setMeshColor();
   tick();
 }
 
