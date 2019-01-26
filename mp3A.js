@@ -41,8 +41,7 @@ var rotDegrees = 0.85; //degrees to increment/decrement axis rotation with user 
 var rotDegrees_clickAndDrag = 0.9; //degrees to increment/decrement axis rotation with mouse controls
 var rotDegreesY = 0.0; //total degrees we have currently rotated about the up axis
 
-var meshRotX = 0.0;
-var meshRotZ = 0.0;
+var meshQuat = quat.create(); //rotation quaternion for the mesh
 
 var speed = 0.12; //speed user camera moves forward
 
@@ -154,7 +153,7 @@ function uploadSkyboxToShader(skybox) {
  * @return {Number} The radians that correspond to the degree input
  */
 function degToRad(degrees) {
-        return degrees * Math.PI / 180;
+    return degrees * Math.PI / 180;
 }
 
 /**
@@ -335,12 +334,10 @@ function drawSkybox(scale) {
  * @param indexBuf The indxe buffer for the polygonal object to draw
  * @param normalBuf The vertex normal buffer for the polygonal object to draw
  * @param {float} scale Amount to scale the object by
- * @param {float} rotX Amount in degrees to rotate the object about the X axis.
- * @param {float} rotY Amount in degrees to rotate the object about the Y axis.
- * @param {float} rotZ Amount in degrees to rotate the object about the Z axis.
+ * @param {Quaternion} rotQuat Quaternion holding the rotation to apply to the mesh.
  * @param {bool} refMapping True indicates we should use reflection mapping on the mesh, if option enabled. False will never draw reflections.
  */
-function drawMesh(vertexBuf, indexBuf, normalBuf, scale, rotX, rotY, rotZ, refMapping) {
+function drawMesh(vertexBuf, indexBuf, normalBuf, scale, rotQuat, refMapping) {
     if (typeof(scale)==='undefined') scale = 1.0;
     if (typeof(rotX)==='undefined') rotX = 0.0;
     if (typeof(rotY)==='undefined') rotY = 0.0;
@@ -348,10 +345,13 @@ function drawMesh(vertexBuf, indexBuf, normalBuf, scale, rotX, rotY, rotZ, refMa
     if (typeof(refMapping)==='undefined') refMapping = reflectionMapping;
     
     mvPushMatrix();
+    
     if(scale != 1.0) mat4.scale(mvMatrix, mvMatrix, vec3.fromValues(scale, scale, scale));
-    if(rotX != 0.0) mat4.rotateX(mvMatrix, mvMatrix, degToRad(rotX));
-    if(rotY != 0.0) mat4.rotateY(mvMatrix, mvMatrix, degToRad(rotY));
-    if(rotZ != 0.0) mat4.rotateZ(mvMatrix, mvMatrix, degToRad(rotZ));
+    //Apply mesh rotation quaternion to mvMatrix
+    var quatRotMatrix = mat4.create();
+    mat4.fromQuat(quatRotMatrix, rotQuat);
+    mat4.multiply(mvMatrix, mvMatrix, quatRotMatrix);
+    
     setMatrixUniforms();
     uploadSkyboxToShader(false);
     //T && T -> use reflection mapping. Either F -> no reflections.
@@ -414,7 +414,7 @@ function draw() {
     mat4.rotateX(mvMatrix,mvMatrix,modelXRotationRadians);
     mat4.rotateY(mvMatrix,mvMatrix,modelYRotationRadians);
     drawSkybox(40.0); //textures will be a bit low-res, but environment looks less boxy.
-    drawMesh(meshVertexPosBuf, meshIndexBuf, meshNormalBuf, scale / 100.0, meshRotX, 0, meshRotZ, true); //draw mesh if buffered
+    drawMesh(meshVertexPosBuf, meshIndexBuf, meshNormalBuf, scale / 100.0, meshQuat, true); //draw mesh if buffered
     mvPopMatrix(); //revert to original lookAt matrix
     }
 }
@@ -610,7 +610,6 @@ function handleKeys() {
     if(pressedKeys[37] || pressedKeys[65]) { //Left arrow OR A: Turn left (orbit mesh left) (about y axis)
         quat.setAxisAngle(quatLR, vec3.fromValues(0.0,1.0,0.0), degToRad(-1.0 * rotDegrees));
         vec3.transformQuat(eyePt,eyePt,quatLR);
-        //viewDir = normalize(vec3.fromValues(0.0 - eyePt[0], viewDir[1], 0.0 - eyePt[2])); //ensure always looking at mesh
         
         var oldY = viewDir[1];
         viewDir = normalize(vec3.fromValues(0.0 - eyePt[0], 0.0, 0.0 - eyePt[2])); //ensure always looking at mesh
@@ -646,13 +645,11 @@ function handleKeys() {
     }
     if(pressedKeys[87]) { //W: move forward
         //Move in direction of viewDir
-        //var velocity = vec3.fromValues(speed*viewDir[0], speed*viewDir[1], speed*viewDir[2]);
         var velocity = vec3.fromValues(0.0, speed, 0.0);
         vec3.add(eyePt, velocity, eyePt);
     }
     if(pressedKeys[83]) { //S: move backward
         //Move in opposite direction of viewDir
-        //var velocity = vec3.fromValues(-1.0*speed*viewDir[0], -1.0*speed*viewDir[1], -1.0*speed*viewDir[2]);
         var velocity = vec3.fromValues(0.0, -1.0*speed, 0.0);
         vec3.add(eyePt, velocity, eyePt);
     }
@@ -668,28 +665,26 @@ function handleMouseUp() {
 
 /**
  * Use combined mouse click & movement to rotate the mesh. Change in X -> roll mesh; Change in Y -> rotate up/down.
- * Uses Euler angles b/c I could not get quaternions to apply correctly for some reason :(
  */
 function handleMouseMove(event) {
     if(mouseDown && lastMousePos[0] != -1.0 && lastMousePos[1] != -1.0) {
         change = [lastMousePos[0] - event.clientX, event.clientY - lastMousePos[1]];
-        //Roll left/right if change in mouse X
+        //Roll mesh left/right if change in mouse X
         if(change[0] != 0) {
-            var sign = 1.0;
-            if(change[0] < 0) sign = -1.0;
-            
-            meshRotZ += sign * rotDegrees_clickAndDrag;
-            if(meshRotZ >= 360.0) meshRotZ -= 360.0;
-            if(meshRotZ <= -360.0) meshRotZ += 360.0;
+            var sign = -1.0;
+            if(change[0] < 0) sign = 1.0;
+            //Axis of rotation is viewDir
+            quat.setAxisAngle(eyeQuatUD, viewDir, sign * degToRad(rotDegrees_clickAndDrag)) //create the new quat
+            quat.multiply(meshQuat, meshQuat, eyeQuatUD); //apply new rotation to existing mesh rotation
         }
-        //Rotate up/down if change in mouse Y
+        //Rotate mesh up/down if change in mouse Y
         if(change[1] != 0) {
             var sign = 1.0;
             if(change[1] < 0) sign = -1.0;
-            
-            meshRotX += sign * rotDegrees_clickAndDrag;
-            if(meshRotX >= 360.0) meshRotX -= 360.0;
-            if(meshRotX <= -360.0) meshRotX += 360.0;
+            //Axis of rotatoin is perpendicular to both viewDir and up
+            var axis = cross(viewDir, up); 
+            quat.setAxisAngle(eyeQuatUD, axis, sign * degToRad(rotDegrees_clickAndDrag)) //create the new quat
+            quat.multiply(meshQuat, meshQuat, eyeQuatUD); //apply new rotation to existing mesh rotation
         }
     }
     lastMousePos[0] = event.clientX;
